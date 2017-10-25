@@ -22,10 +22,9 @@ static int zetaFLAG, eFlag;
 
 
 void init_program(int *argc, char **argv){ 
- char str[480], line[2048], value[480], param[480], fname[480];
- char v1[480],v2[480],v3[480];
- //char v4[480], v5[480];
- //char *dummy;
+ char str[480], line[4096], value[480], param[480], fname[480];
+ char v1[480], v2[480], v3[480], v4[480], v5[480];
+ char v6[480], v7[480], v8[480], v9[480], v10[480];
  int iFlag = 0;
  mpfr_t aux;
 
@@ -34,7 +33,7 @@ void init_program(int *argc, char **argv){
  sprintf(str, "%s.cfg", argv[1]);
  FILE *fh = fopen(str,"r"); 
  if (fh == NULL) err_msg("Cannot open input file");
- while (fgets(line, 2048, fh)!=NULL) {
+ while (fgets(line, 4096, fh)!=NULL) {
     sscanf(line, "%s\t%s", param, value);
     if (strcmp(param,"#resname=") == 0) sprintf(resname,"%s", value);
     if (strcmp(param,"#npoints=") == 0) N = atoi(value);
@@ -235,18 +234,47 @@ void init_program(int *argc, char **argv){
    exit(1);
  }
  jj = 0;
+
+ mpfr_t Tf, Lf, uf, qf;
+ mpfr_inits(Tf, Lf, uf, qf, (mpfr_ptr) NULL);
+//# 1. q 2. u 3.-4. Q 5.-6. V 7.-8. Z 9.-10. Phi
+//# Time = 1.22706191184548E-01	L = 4.00000000000000E-02	u* = 0.00000000000000E+00	q* = 0.00000000000000E+00
  if (fh == NULL) err_msg("Cannot open restart file");
  if (fh != NULL) {
-   while (fgets(line, 2048, fh)!=NULL) {
+   while (fgets(line, 4096, fh)!=NULL) {
      if (jj == 0) {
-       fgets(line, 2048, fh);//dummy = 
-       fgets(line, 2048, fh);//dummy =        
-       fgets(line, 2048, fh);//dummy = 
+       fgets(line, 4096, fh);//dummy = 
+       sscanf(line, "# Time = %s\tL = %s\tu* = %s\tq* = %s", v1, v2, v3, v4);
+       fgets(line, 4096, fh);//dummy =        
+       //sscanf(line, "# Time = %s\tL = %s\tu* = %s\tq* = %s", v1, v2, v3, v4);
+       mpfr_set_str(Tf, v1, 10, RMODE);
+       mpfr_set_str(Lf, v2, 10, RMODE);
+       mpfr_set_str(uf, v3, 10, RMODE);
+       mpfr_set_str(qf, v4, 10, RMODE);
+       mpfr_printf("Time = %.12Re:\nConformal Map parameters:\nL = %.64Re\nu* = %.64Re\nq* = %.64Re\n\n", Tf, Lf, uf, qf);
+       fgets(line, 4096, fh);//dummy = 
+       printf("Last header Line:\t%s", line);
      }
      //sscanf(line, "%s\t%s\t%s\t%s\n", v1, v2, v3, v4);
-     sscanf(line, "%s\t%s\t%s\n", v1, v2, v3);
-     mpfr_set_str(W[jj].re, v2, 10, RMODE);   // replace v2
-     mpfr_set_str(W[jj].im, v3, 10, RMODE);   // replace v3
+     //sscanf(line, "%s\t%s\t%s\n", v1, v2, v3);
+     sscanf(line, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", v1, v2, v3, v4, v5, v6, v7, v8, v9, v10);	
+     //printf("I = %d\tv3 = %s\tv4 = %s\n", jj, v3, v4);
+     // setting 1/z_u
+     mpfr_set_str(W[jj].re, v3, 10, RMODE);   // replace v2
+     mpfr_set_str(W[jj].im, v4, 10, RMODE);   // replace v3
+     mpfr_mul(aux, W[jj].im, W[jj].im, RMODE);
+     mpfr_fms(W[jj].re, W[jj].re, W[jj].re, aux, RMODE);
+
+     mpfr_set_str(aux, v3, 10, RMODE);   
+     mpfr_mul(W[jj].im, aux, W[jj].im, RMODE);
+     mpfr_mul_ui(W[jj].im, W[jj].im, 2, RMODE);
+     // now cook-up z_u
+     mpfr_mul(aux, W[jj].re, W[jj].re, RMODE);
+     mpfr_fma(aux, W[jj].im, W[jj].im, aux, RMODE);
+
+     mpfr_div(W[jj].re, W[jj].re, aux, RMODE);
+     mpfr_div(W[jj].im, W[jj].im, aux, RMODE);
+     mpfr_neg(W[jj].im, W[jj].im, RMODE);
      
      //mpfr_div_ui(y[jj], u[jj], 2, RMODE);
      //mpfr_tan(y[jj], y[jj], RMODE);
@@ -261,6 +289,11 @@ void init_program(int *argc, char **argv){
      //printf("Here\n%s\n", line);
      jj++;   
    }
+   for (int j = N-1; j > -1; j--) {
+     mpfr_sub(W[j].re, W[j].re, W[0].re, RMODE);
+     mpfr_sub(W[j].im, W[j].im, W[0].im, RMODE);
+   }
+
    write_cmplx(W, "W.txt");
    printf("Lines read = %d of %ld expected\n", jj, N);
 
@@ -2166,7 +2199,9 @@ void write_real(mpfr_t *out, char* str){
 
 void write_cmplx(mpfc_t *out, char* str){
   FILE *fout = fopen(str,"w");
-  for (int jj = 0; jj < N; jj++) mpfr_fprintf(fout, "%.300Re\t%.300Re\t%.300Re\n", u[jj], out[jj].re, out[jj].im);
+  for (int jj = 0; jj < N; jj++) {
+    mpfr_fprintf(fout, "%.300Re\t%.300Re\t%.300Re\n", u[jj], out[jj].re, out[jj].im);
+  }
   fclose(fout);
 }
 

@@ -10,7 +10,7 @@
 #define EXTRA_NEWTON	32
 #define AD_ABERTH	10
 #define ROOT_OUT	1
-#define N_AGH		8
+#define N_AGH		14
 #define DEMO_SQRT_SYMM	0
 
 typedef struct profile {

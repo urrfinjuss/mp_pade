@@ -1,5 +1,5 @@
 CC=gcc
-FLAGS=-std=gnu99 -I/home/orange/usr/include -L/home/orange/usr/lib -Ofast -flto
+FLAGS=-std=gnu99 -I$(HOME)/usr/include -L$(HOME)/usr/lib -Ofast -flto
 LFLAGS= -lmppade -lmpfr
 
 SRCS1=main.c
